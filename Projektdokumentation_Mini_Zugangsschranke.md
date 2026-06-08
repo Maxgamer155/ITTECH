@@ -1,0 +1,197 @@
+# Projektdokumentation: PIN-gesicherte Zugangsschranke
+
+## Deckblatt
+
+**Projektidee:** PIN-gesicherte Zugangsschranke mit Bewegungsalarm  
+**Fach / Lernfeld:** IT-Technik, Lernfeld 7  
+**Gruppe:** TODO: Namen der Gruppenmitglieder eintragen  
+**Abgabedatum:** TODO: Datum eintragen  
+
+## Inhaltsverzeichnis
+
+1. Projektbeschreibung
+2. Soll-Anforderungen
+3. Verwendete Hardware
+4. Funktionsprinzip
+5. GPIO-Anschlusstabelle
+6. Software-Funktionen
+7. Bedienkonzept
+8. Ablauf der Steuerung
+9. Tests
+10. Probleme und Lösungsansätze
+11. Erweiterungsmöglichkeiten
+
+## 1. Projektbeschreibung
+
+In diesem Projekt wird eine kleine Zugangsschranke mit einem Raspberry Pi 4 realisiert. Die Schranke wird durch einen Servo-Motor bewegt. Ein PIR-Bewegungssensor erkennt, wenn sich eine Person vor der Schranke befindet. Der Zugang wird über eine Infrarot-Fernbedienung gesteuert: Nur nach Eingabe eines richtigen PIN-Codes öffnet die Schranke.
+
+Ein 16x2-LCD zeigt Statusmeldungen wie `PIN eingeben`, `Schranke offen`, `Falscher PIN` oder `ALARM` an. Eine rote und eine grüne LED zeigen den Zustand optisch. Ein Buzzer gibt Rückmeldungen und Alarmsignale aus. Zusätzlich stellt der Raspberry Pi eine Webseite bereit, über die der aktuelle Zustand kontrolliert und die Schranke gesteuert werden kann.
+
+Die fiktive Situation ist eine kleine Parkplatz-, Lager- oder Sicherheitszufahrt. Das Projekt kombiniert Sensorik, Aktorik, Benutzerinteraktion und Netzwerkfunktion.
+
+## 2. Soll-Anforderungen
+
+### Pflichtanforderungen
+
+- Die Schranke startet im Zustand **geschlossen**.
+- Der PIR-Sensor erkennt Bewegung vor der Schranke.
+- Die IR-Fernbedienung wird zur PIN-Eingabe verwendet.
+- Nur der richtige PIN-Code öffnet die Schranke.
+- Der Servo bewegt den Schrankenarm zwischen geschlossen und offen.
+- Eine rote LED leuchtet bei geschlossener Schranke.
+- Eine grüne LED leuchtet bei geöffneter Schranke.
+- Ein Taster dient als manuelle lokale Bedienung.
+- Das LCD zeigt den aktuellen Zustand und Bedienhinweise.
+- Der Buzzer gibt akustische Rückmeldungen.
+- Nach mehreren falschen PIN-Eingaben wird ein Alarm ausgelöst.
+
+### Erweiterte Anforderungen
+
+- Die Schranke schließt nach einem Countdown automatisch.
+- Ein Sperrmodus kann per Fernbedienung aktiviert werden.
+- Im Sperrmodus löst Bewegung einen Alarm aus.
+- Ein Webinterface zeigt den aktuellen Zustand an.
+- Über das Webinterface können Öffnen, Schließen, Sperrmodus und Alarm-Stummschaltung ausgelöst werden.
+- Ereignisse werden in einer Log-Datei gespeichert.
+
+## 3. Verwendete Hardware
+
+- Raspberry Pi 4
+- Breadboard
+- Jumperkabel
+- IR-Empfänger mit 3 Pins
+- IR-Fernbedienung
+- PIR-Bewegungssensor, vermutlich `HC-SR501`
+- SG90 Micro Servo
+- 16x2 LCD mit I²C-Adapter, vermutlich `PCF8574`
+- rote LED
+- grüne LED
+- Widerstände für LEDs, z. B. 220 Ω bis 330 Ω
+- Taster
+- Buzzer / Piezo-Speaker
+- optional externe 5-V-Versorgung für den Servo
+
+## 4. Funktionsprinzip
+
+Der Raspberry Pi überwacht dauerhaft den PIR-Sensor, den IR-Empfänger und den Taster. Erkennt der PIR-Sensor eine Person, zeigt das LCD `PIN eingeben`. Der Nutzer gibt den PIN über die IR-Fernbedienung ein. Wird der PIN korrekt bestätigt, fährt der Servo die Schranke auf. Nach einem Countdown schließt die Schranke automatisch wieder.
+
+Bei falscher PIN-Eingabe wird die Anzahl der Fehlversuche erhöht. Nach drei falschen Eingaben wechselt das System in den Alarmzustand. Der Buzzer piept, die rote LED bleibt aktiv und das LCD zeigt `ALARM`.
+
+## 5. GPIO-Anschlusstabelle
+
+| Bauteil | Pin am Bauteil | Raspberry Pi | Hinweis |
+|---|---|---|---|
+| LCD | `GND` | `GND`, z. B. Pin 6 | gemeinsame Masse |
+| LCD | `VCC` | zuerst `3.3V`, Pin 1 oder 17 | bei 5 V Level-Shifter für I²C nutzen |
+| LCD | `SDA` | `GPIO2 / SDA`, Pin 3 | I²C-Daten |
+| LCD | `SCL` | `GPIO3 / SCL`, Pin 5 | I²C-Takt |
+| IR-Empfänger | `VCC` | `3.3V`, Pin 1 | GPIO-sicher betreiben |
+| IR-Empfänger | `GND` | `GND`, z. B. Pin 9 | gemeinsame Masse |
+| IR-Empfänger | `OUT/S` | `GPIO4`, Pin 7 | IR-Daten |
+| PIR-Sensor | `VCC` | `5V`, Pin 2 oder 4 | Sensorversorgung |
+| PIR-Sensor | `GND` | `GND`, z. B. Pin 14 | gemeinsame Masse |
+| PIR-Sensor | `OUT` | `GPIO17`, Pin 11 | Bewegungssignal |
+| Servo | Signal | `GPIO18`, Pin 12 | PWM-Ausgang |
+| Servo | Plus | externe `5V` empfohlen | Pi-5V nur für kurze Tests |
+| Servo | Minus | `GND` | gemeinsame Masse notwendig |
+| Buzzer | Plus | `GPIO22`, Pin 15 | Ton-Ausgang |
+| Buzzer | Minus | `GND` | gemeinsame Masse |
+| rote LED | Anode über Widerstand | `GPIO23`, Pin 16 | geschlossen / Alarm |
+| rote LED | Kathode | `GND` | Vorwiderstand verwenden |
+| grüne LED | Anode über Widerstand | `GPIO24`, Pin 18 | offen |
+| grüne LED | Kathode | `GND` | Vorwiderstand verwenden |
+| Taster | Seite 1 | `GPIO27`, Pin 13 | interner Pull-up |
+| Taster | Seite 2 | `GND` | Tastendruck zieht auf GND |
+
+Wichtig: GPIO-Pins am Raspberry Pi sind nur 3,3-V-tolerant. Das LCD sollte zuerst mit 3,3 V getestet werden. Falls das LCD nur mit 5 V funktioniert, sollte für SDA und SCL ein Level-Shifter verwendet werden, weil viele I²C-Adapter Pull-up-Widerstände nach VCC besitzen. Der Servo sollte nicht aus einem GPIO-Pin versorgt werden. Falls eine externe Servo-Versorgung verwendet wird, muss deren Masse mit `GND` des Raspberry Pi verbunden werden.
+
+## 6. Software-Funktionen
+
+- Zustandsmaschine mit `GESCHLOSSEN`, `OEFFNET`, `OFFEN`, `SCHLIESST`, `ALARM`
+- PIN-Eingabe über IR-Fernbedienung
+- automatische Schließung nach 5 Sekunden
+- PIR-Bewegungserkennung
+- Sperrmodus mit Alarm bei Bewegung
+- Fehlversuchszähler für falsche PINs
+- Buzzer-Signale für Öffnen, Schließen, Fehler und Alarm
+- LCD-Ausgabe für Status und Bedienhinweise
+- Webinterface auf Port `8080`
+- JSON-Status-Endpunkt `/api/status`
+- Log-Datei `access_gate.log`
+- Konfiguration über `config.json`
+
+## 7. Bedienkonzept
+
+| Eingabe | Funktion |
+|---|---|
+| Zahlen `0` bis `9` | PIN eingeben |
+| `Play/Pause` | PIN bestätigen |
+| `Prev` | letzte PIN-Ziffer löschen |
+| `CH+` | Schranke manuell öffnen |
+| `CH-` | Schranke manuell schließen |
+| `Power` | Sperrmodus ein/aus |
+| `EQ` | Alarm stummschalten |
+| Taster | Schranke lokal öffnen/schließen |
+| Webbutton `Öffnen` | Schranke über Browser öffnen |
+| Webbutton `Schließen` | Schranke über Browser schließen |
+
+Standard-PIN: `1234`
+
+## 8. Ablauf der Steuerung
+
+1. Programm startet.
+2. GPIO, Servo, LCD, IR-Empfänger, PIR-Sensor und Webserver werden initialisiert.
+3. Schranke fährt in die geschlossene Position.
+4. LCD zeigt `PIN-Schranke` und `geschlossen`.
+5. PIR erkennt eine Person vor der Schranke.
+6. LCD zeigt `PIN eingeben`.
+7. Nutzer gibt PIN über Fernbedienung ein.
+8. Bei korrektem PIN fährt der Servo die Schranke auf.
+9. Grüne LED leuchtet, rote LED geht aus.
+10. LCD zeigt Countdown zum automatischen Schließen.
+11. Nach Ablauf des Countdowns fährt der Servo die Schranke zu.
+12. Bei falschem PIN wird der Fehlversuchszähler erhöht.
+13. Nach drei falschen PINs wird Alarm ausgelöst.
+
+## 9. Tests
+
+| Testfall | Erwartetes Ergebnis | Ergebnis |
+|---|---|---|
+| Programmstart | Schranke geschlossen, rote LED an, LCD zeigt Status | TODO |
+| Bewegung vor PIR | LCD fordert PIN-Eingabe an | TODO |
+| richtiger PIN | Servo öffnet, grüne LED an, Buzzer piept | TODO |
+| falscher PIN | Fehleranzeige, Fehlversuchszähler steigt | TODO |
+| 3 falsche PINs | Alarmzustand, Buzzer warnt | TODO |
+| `EQ` drücken | Alarm wird stummgeschaltet | TODO |
+| `Power` drücken | Sperrmodus wechselt | TODO |
+| Bewegung im Sperrmodus | Alarm wird ausgelöst | TODO |
+| Webinterface öffnen | Status wird im Browser angezeigt | TODO |
+| Webbutton schließen | Servo fährt zu | TODO |
+
+## 10. Probleme und Lösungsansätze
+
+| Problem | Mögliche Ursache | Lösungsansatz |
+|---|---|---|
+| LCD bleibt leer | I²C deaktiviert, falsche Adresse, Kontrast falsch | `raspi-config`, `i2cdetect -y 1`, Potentiometer drehen |
+| Servo zittert | Stromversorgung zu schwach | externe 5-V-Versorgung nutzen |
+| IR wird nicht erkannt | falscher Pin, falsche Pinbelegung, andere Codes | `src/scan_ir_codes.py` verwenden |
+| PIR löst dauernd aus | Sensor braucht Aufwärmzeit oder Potis falsch | 30 Sekunden warten, Empfindlichkeit einstellen |
+| Buzzer klingt falsch | aktiver/passiver Buzzer unterschiedlich | Frequenz oder Ansteuerung anpassen |
+| Webseite nicht erreichbar | falsche IP oder Port | `http://<Pi-IP>:8080` verwenden |
+
+## 11. Erweiterungsmöglichkeiten
+
+- PIN im Webinterface ändern.
+- Statusverlauf im Webinterface anzeigen.
+- MQTT-Nachricht bei Alarm senden.
+- Display-Menü für mehrere Benutzer-PINs.
+- Buzzer-Melodie für erfolgreiche Freigabe.
+- Mechanischer Schrankenarm aus Pappe oder Holz.
+
+## Dateien im Projekt
+
+- `src/access_gate.py`: Hauptprogramm
+- `src/scan_ir_codes.py`: Hilfsprogramm zum Auslesen der Fernbedienungscodes
+- `config.json`: Pinbelegung, PIN-Code und Hardware-Konfiguration
+- `README.md`: Aufbau- und Startanleitung
+- `access_gate.log`: wird beim Programmstart automatisch angelegt

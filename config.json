@@ -1,0 +1,63 @@
+{
+  "pin_code": "1234",
+  "auto_close_seconds": 5,
+  "max_wrong_pins": 3,
+  "web_host": "0.0.0.0",
+  "web_port": 8080,
+  "pins": {
+    "servo": 18,
+    "ir_receiver": 4,
+    "pir": 17,
+    "red_led": 23,
+    "green_led": 24,
+    "button": 27,
+    "buzzer": 22
+  },
+  "servo": {
+    "closed_duty_cycle": 2.5,
+    "open_duty_cycle": 7.2,
+    "pwm_hz": 50,
+    "move_seconds": 0.7
+  },
+  "lcd": {
+    "enabled": true,
+    "i2c_bus": 1,
+    "address": 39,
+    "columns": 16,
+    "rows": 2
+  },
+  "ir": {
+    "enabled": true,
+    "pulse_timeout_seconds": 0.08,
+    "repeat_cooldown_seconds": 0.25,
+    "open_button": "ch_plus",
+    "close_button": "ch_minus",
+    "delete_button": "prev",
+    "mute_button": "eq",
+    "lock_button": "power",
+    "confirm_button": "play",
+    "button_codes": {
+      "power": 16753245,
+      "ch": 16736925,
+      "ch_plus": 16769565,
+      "prev": 16720605,
+      "next": 16712445,
+      "play": 16761405,
+      "vol_minus": 16769055,
+      "vol_plus": 16754775,
+      "eq": 16748655,
+      "0": 16738455,
+      "100_plus": 16750695,
+      "200_plus": 16756815,
+      "1": 16724175,
+      "2": 16718055,
+      "3": 16743045,
+      "4": 16716015,
+      "5": 16726215,
+      "6": 16734885,
+      "7": 16728765,
+      "8": 16730805,
+      "9": 16732845
+    }
+  }
+}
