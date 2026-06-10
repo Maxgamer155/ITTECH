@@ -92,6 +92,27 @@ Beispiel lokal auf dem Pi:
 http://localhost:8080
 ```
 
+## HC-SR04 einzeln testen
+
+Wenn der Abstandssensor im Hauptprogramm nicht funktioniert, zuerst isoliert testen:
+
+```bash
+python3 src/test_ultrasonic.py
+```
+
+Mit 20 Messungen:
+
+```bash
+python3 src/test_ultrasonic.py --samples 20
+```
+
+Standard-Pins:
+
+- `Trig`: `GPIO17 / Pin 11`
+- `Echo`: `GPIO5 / Pin 29`
+
+Wichtig: `Echo` muss über Spannungsteiler angeschlossen sein.
+
 ## Bedienung
 
 | Taste | Funktion |
@@ -150,6 +171,6 @@ Der Taster ist standardmäßig als Verbindung von `GPIO27` nach `GND` konfigurie
 - LCD bleibt leer: I²C aktivieren, Adresse mit `i2cdetect -y 1` prüfen, Potentiometer am LCD-Adapter drehen.
 - Servo zittert: externe `5V`-Versorgung verwenden und gemeinsame Masse herstellen.
 - Fernbedienung reagiert nicht: IR-Empfänger-Pinbelegung prüfen, `VCC` an `3.3V`, `OUT` an `GPIO4`.
-- Abstand ist immer `n/a`: `Trig`/`Echo` prüfen, Spannungsteiler prüfen, Sensor gerade ausrichten.
+- Abstand ist immer `n/a`: `src/test_ultrasonic.py` starten, `Trig`/`Echo` prüfen, Spannungsteiler prüfen, Sensor gerade ausrichten.
 - Abstand springt stark: Sensor auf feste Fläche ausrichten, Kabel prüfen, Messbereich unter `300 cm` halten.
 - Weboberfläche nicht erreichbar: IP-Adresse des Pi prüfen und Port `8080` verwenden.

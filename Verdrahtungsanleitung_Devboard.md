@@ -202,6 +202,34 @@ python3 src/access_gate.py
 http://<IP-DES-RASPBERRY-PI>:8080
 ```
 
+## 12. HC-SR04 einzeln testen
+
+Vor dem Hauptprogramm kann der Ultraschallsensor isoliert getestet werden:
+
+```bash
+python3 src/test_ultrasonic.py
+```
+
+Wenn dauerhaft `timeout: Echo wurde nicht HIGH` erscheint:
+
+- `Trig` und `Echo` sind vertauscht.
+- `VCC` oder `GND` fehlt.
+- Der Sensor bekommt keine 5 V.
+- Der Spannungsteiler ist falsch verbunden.
+
+Wenn dauerhaft `timeout: Echo blieb zu lange HIGH` erscheint:
+
+- `Echo` hängt dauerhaft auf HIGH.
+- Spannungsteiler oder Echo-Leitung prüfen.
+- Sensor kurz stromlos machen und neu starten.
+
+Wenn Werte stark springen:
+
+- Sensor auf eine harte, gerade Fläche richten.
+- Abstand zwischen ca. 5 cm und 200 cm testen.
+- Jumperkabel prüfen.
+- Sensor nicht schräg halten.
+
 ## 12. Häufige Fehler
 
 | Fehler | Ursache | Lösung |
@@ -210,6 +238,6 @@ http://<IP-DES-RASPBERRY-PI>:8080
 | LCD zeigt nur blaue Fläche | Kontrast falsch | Poti am I²C-Adapter drehen |
 | LCD wird nicht gefunden | I²C aus oder falsche Verkabelung | `raspi-config`, SDA/SCL prüfen |
 | IR reagiert nicht | VCC/GND/OUT vertauscht | Pinbeschriftung am Modul prüfen |
-| Abstand ist immer `n/a` | Trigger/Echo vertauscht oder Spannungsteiler falsch | Verdrahtung prüfen |
+| Abstand ist immer `n/a` | Trigger/Echo vertauscht oder Spannungsteiler falsch | `src/test_ultrasonic.py` ausführen |
 | Abstand springt stark | Sensor misst schräg oder auf weiche Oberfläche | Sensor gerade auf feste Fläche ausrichten |
 | Taster reagiert invertiert | falsch gesteckt | Taster drehen oder Pins wechseln |
