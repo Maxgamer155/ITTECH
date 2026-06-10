@@ -2,7 +2,7 @@
 
 ## Deckblatt
 
-**Projektidee:** PIN-gesicherte Zugangsschranke mit Abstandswarnung  
+**Projektidee:** Automatische Zugangsschranke mit IR-Fernbedienung und Abstandssensor  
 **Fach / Lernfeld:** IT-Technik, Lernfeld 7  
 **Gruppe:** TODO: Namen der Gruppenmitglieder eintragen  
 **Abgabedatum:** TODO: Datum eintragen  
@@ -24,11 +24,11 @@
 
 ## 1. Projektbeschreibung
 
-In diesem Projekt wird eine kleine Zugangsschranke mit einem Raspberry Pi 4 realisiert. Die Schranke wird durch einen Servo-Motor bewegt. Ein HC-SR04-Ultraschallsensor misst den Abstand vor der Schranke. Der Zugang wird über eine Infrarot-Fernbedienung gesteuert: Nur nach Eingabe eines richtigen PIN-Codes öffnet die Schranke.
+In diesem Projekt wird eine kleine Zugangsschranke mit einem Raspberry Pi 4 realisiert. Die Schranke wird durch einen Servo-Motor bewegt. Ein HC-SR04-Ultraschallsensor misst den Abstand vor der Schranke. Erkennt der Sensor ein Objekt innerhalb der eingestellten Entfernung, öffnet die Schranke automatisch. Zusätzlich kann die Schranke über eine Infrarot-Fernbedienung und einen lokalen Taster gesteuert werden.
 
 Ein 16x2-LCD zeigt Statusmeldungen wie `PIN eingeben`, `Schranke offen`, `Falscher PIN` oder `ALARM` an. Eine rote und eine grüne LED zeigen den Zustand optisch. Ein Buzzer gibt Rückmeldungen und Alarmsignale aus. Zusätzlich stellt der Raspberry Pi eine Webseite bereit, über die der aktuelle Zustand kontrolliert und die Schranke gesteuert werden kann.
 
-Die fiktive Situation ist eine kleine Parkplatz-, Lager- oder Sicherheitszufahrt. Nähert sich ein Objekt oder eine Person der Schranke, zeigt das LCD den Abstand und fordert zur PIN-Eingabe auf. Bei sehr geringem Abstand oder im Sperrmodus wird Alarm ausgelöst. Das Projekt kombiniert Sensorik, Aktorik, Benutzerinteraktion und Netzwerkfunktion.
+Die fiktive Situation ist eine kleine Parkplatz-, Lager- oder Sicherheitszufahrt. Nähert sich ein Fahrzeug oder eine Person der Schranke, zeigt das LCD den Abstand und öffnet die Schranke. Nach einem Countdown schließt sie automatisch. Wenn der Abstandssensor danach weiterhin ein Objekt erkennt, öffnet die Schranke erneut statt in den Alarmzustand zu gehen.
 
 ## 2. Soll-Anforderungen
 
@@ -36,8 +36,9 @@ Die fiktive Situation ist eine kleine Parkplatz-, Lager- oder Sicherheitszufahrt
 
 - Die Schranke startet im Zustand **geschlossen**.
 - Der HC-SR04 misst den Abstand vor der Schranke.
-- Die IR-Fernbedienung wird zur PIN-Eingabe verwendet.
-- Nur der richtige PIN-Code öffnet die Schranke.
+- Die IR-Fernbedienung wird zur PIN-Eingabe und manuellen Steuerung verwendet.
+- Der richtige PIN-Code öffnet die Schranke.
+- Ein erkanntes Objekt unterhalb der Abstandsschwelle öffnet die Schranke automatisch.
 - Der Servo bewegt den Schrankenarm zwischen geschlossen und offen.
 - Eine rote LED leuchtet bei geschlossener Schranke.
 - Eine grüne LED leuchtet bei geöffneter Schranke.
@@ -50,7 +51,7 @@ Die fiktive Situation ist eine kleine Parkplatz-, Lager- oder Sicherheitszufahrt
 
 - Die Schranke schließt nach einem Countdown automatisch.
 - Ein Sperrmodus kann per Fernbedienung aktiviert werden.
-- Im Sperrmodus löst eine Annäherung einen Alarm aus.
+- Im Sperrmodus öffnet die Abstandserkennung nicht automatisch.
 - Ein Webinterface zeigt den aktuellen Zustand an.
 - Über das Webinterface können Öffnen, Schließen, Sperrmodus und Alarm-Stummschaltung ausgelöst werden.
 - Ereignisse werden in einer Log-Datei gespeichert.
@@ -74,7 +75,7 @@ Die fiktive Situation ist eine kleine Parkplatz-, Lager- oder Sicherheitszufahrt
 
 ## 4. Funktionsprinzip
 
-Der Raspberry Pi überwacht dauerhaft den HC-SR04-Ultraschallsensor, den IR-Empfänger und den Taster. Misst der Ultraschallsensor einen Abstand unterhalb der Warnschwelle, zeigt das LCD den Abstand und `PIN eingeben`. Der Nutzer gibt den PIN über die IR-Fernbedienung ein. Wird der PIN korrekt bestätigt, fährt der Servo die Schranke auf. Nach einem Countdown schließt die Schranke automatisch wieder.
+Der Raspberry Pi überwacht dauerhaft den HC-SR04-Ultraschallsensor, den IR-Empfänger und den Taster. Misst der Ultraschallsensor einen Abstand unterhalb der Warnschwelle, zeigt das LCD den Abstand und öffnet die Schranke automatisch. Der Nutzer kann alternativ einen PIN über die IR-Fernbedienung eingeben oder die Schranke mit dem Taster öffnen und schließen. Nach einem Countdown schließt die Schranke automatisch wieder.
 
 Bei falscher PIN-Eingabe wird die Anzahl der Fehlversuche erhöht. Nach drei falschen Eingaben wechselt das System in den Alarmzustand. Der Buzzer piept, die rote LED bleibt aktiv und das LCD zeigt `ALARM`.
 
@@ -113,9 +114,9 @@ Wichtig: GPIO-Pins am Raspberry Pi sind nur 3,3-V-tolerant. Das `Echo`-Signal de
 - PIN-Eingabe über IR-Fernbedienung
 - automatische Schließung nach 5 Sekunden
 - Abstandsmessung mit HC-SR04
-- PIN-Aufforderung bei Abstand unter `80 cm`
-- Alarm bei Abstand unter `25 cm`
-- Sperrmodus mit Alarm bei Annäherung
+- automatische Öffnung bei Abstand unter `80 cm`
+- erneutes Öffnen, wenn nach dem Schließen weiterhin ein Objekt erkannt wird
+- Sperrmodus ohne automatische Öffnung
 - Fehlversuchszähler für falsche PINs
 - Buzzer-Signale für Öffnen, Schließen, Fehler und Alarm
 - LCD-Ausgabe für Status und Bedienhinweise
@@ -141,6 +142,8 @@ Wichtig: GPIO-Pins am Raspberry Pi sind nur 3,3-V-tolerant. Das `Echo`-Signal de
 
 Standard-PIN: `1234`
 
+Der lokale Taster schaltet standardmäßig `GPIO27` gegen `GND`. Falls ein Devboard-Taster gegen `3.3V` schaltet, wird dies in `config.json` über `button.active_low` und `button.pull` angepasst.
+
 ## 8. Ablauf der Steuerung
 
 1. Programm startet.
@@ -148,27 +151,27 @@ Standard-PIN: `1234`
 3. Schranke fährt in die geschlossene Position.
 4. LCD zeigt `PIN-Schranke` und `geschlossen`.
 5. Der HC-SR04 misst ein Objekt innerhalb der Warnschwelle.
-6. LCD zeigt den Abstand und `PIN eingeben`.
-7. Nutzer gibt PIN über Fernbedienung ein.
-8. Bei korrektem PIN fährt der Servo die Schranke auf.
+6. LCD zeigt den Abstand und `Oeffne...`.
+7. Servo fährt die Schranke auf.
+8. Alternativ kann der Nutzer per Fernbedienung oder Taster öffnen/schließen.
 9. Grüne LED leuchtet, rote LED geht aus.
 10. LCD zeigt Countdown zum automatischen Schließen.
 11. Nach Ablauf des Countdowns fährt der Servo die Schranke zu.
 12. Bei falschem PIN wird der Fehlversuchszähler erhöht.
-13. Nach drei falschen PINs oder bei zu geringem Abstand wird Alarm ausgelöst.
+13. Nach drei falschen PINs wird Alarm ausgelöst. Der Abstandssensor löst keinen Alarm aus.
 
 ## 9. Tests
 
 | Testfall | Erwartetes Ergebnis | Ergebnis |
 |---|---|---|
 | Programmstart | Schranke geschlossen, rote LED an, LCD zeigt Status | TODO |
-| Objekt unter 80 cm | LCD zeigt Abstand und fordert PIN-Eingabe an | TODO |
+| Objekt unter 80 cm | LCD zeigt Abstand und Schranke öffnet automatisch | TODO |
 | richtiger PIN | Servo öffnet, grüne LED an, Buzzer piept | TODO |
 | falscher PIN | Fehleranzeige, Fehlversuchszähler steigt | TODO |
 | 3 falsche PINs | Alarmzustand, Buzzer warnt | TODO |
 | `EQ` drücken | Alarm wird stummgeschaltet | TODO |
 | `Power` drücken | Sperrmodus wechselt | TODO |
-| Annäherung im Sperrmodus | Alarm wird ausgelöst | TODO |
+| Annäherung im Sperrmodus | Schranke bleibt geschlossen, LCD zeigt `Gesperrt` | TODO |
 | Webinterface öffnen | Status wird im Browser angezeigt | TODO |
 | Webbutton schließen | Servo fährt zu | TODO |
 
@@ -199,13 +202,13 @@ Standard-PIN: `1234`
 |---|---|---|
 | Programmstart | `PIN-Schranke` | `geschlossen` |
 | geschlossen | `Geschlossen` | `PIN eingeben` |
-| Objekt unter 80 cm | `Abstand xx.x cm` | `PIN eingeben` |
+| Objekt unter 80 cm | `Abstand xx.x cm` | `Oeffne...` |
 | PIN-Eingabe | `PIN eingeben` | verdeckte PIN, z. B. `****` |
 | falscher PIN | `Falscher PIN` | Fehlversuche, z. B. `1/3` |
 | Schranke öffnet | `OEFFNET...` | Auslöser, z. B. `PIN` |
 | Schranke offen | `Schliesst in` | Countdown, z. B. `5 Sekunden` |
 | Schranke schließt | `SCHLIESST...` | Auslöser, z. B. `Auto` |
-| Alarm | `ALARM` | Grund, z. B. `Zu nah: 18.0 cm` |
+| Alarm | `ALARM` | Grund, z. B. falsche PINs |
 | unbekannter IR-Code | `Unbekannter` | `IR-Code` |
 
 ## Dateien im Projekt

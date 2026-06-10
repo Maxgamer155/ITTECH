@@ -144,6 +144,15 @@ Der Taster wird gegen Masse geschaltet. Das Programm nutzt den internen Pull-up-
 
 Bei einem 4-poligen Taster liegen jeweils zwei gegenüberliegende Pins intern zusammen. Wenn der Taster dauerhaft als gedrückt erkannt wird, um 90 Grad drehen oder andere Pins verwenden.
 
+Falls euer Devboard-Knopf nicht gegen `GND`, sondern gegen `3V3` schaltet, muss die Konfiguration angepasst werden:
+
+```json
+"button": {
+  "active_low": false,
+  "pull": "down"
+}
+```
+
 ## 10. Komplette Anschlussliste
 
 | Bauteil | Bauteil-Pin | Devboard | Pi-Pin |

@@ -113,13 +113,16 @@ Standard-PIN:
 
 Die PIN kann in `config.json` geändert werden.
 
+Der Taster ist standardmäßig als Verbindung von `GPIO27` nach `GND` konfiguriert. Falls euer Devboard-Taster stattdessen nach `3.3V` schaltet, setzt in `config.json` bei `button` die Werte auf `"active_low": false` und `"pull": "down"`.
+
 ## Funktionen
 
 - PIN-Eingabe über IR-Fernbedienung
 - automatische Schließung nach Countdown
 - Abstandsmessung mit HC-SR04
-- PIN-Aufforderung ab `80 cm`
-- Alarm bei weniger als `25 cm` Abstand oder Annäherung im Sperrmodus
+- automatische Öffnung bei Objekt unter `80 cm`
+- erneutes Öffnen, falls nach dem Schließen noch ein Objekt erkannt wird
+- Board-Taster toggelt die Schranke auf/zu, auch wenn vorher ein Alarm aktiv war
 - Alarm nach 3 falschen PINs
 - LCD-Statusanzeige
 - LED-Anzeige für offen/geschlossen
@@ -133,13 +136,13 @@ Die PIN kann in `config.json` geändert werden.
 |---|---|---|
 | Programmstart | `PIN-Schranke` | `geschlossen` |
 | geschlossen | `Geschlossen` | `PIN eingeben` |
-| Objekt unter 80 cm | `Abstand xx.x cm` | `PIN eingeben` |
+| Objekt unter 80 cm | `Abstand xx.x cm` | `Oeffne...` |
 | PIN-Eingabe | `PIN eingeben` | `*`, `**`, `***`, `****` |
 | falscher PIN | `Falscher PIN` | z. B. `1/3` |
 | Schranke öffnet | `OEFFNET...` | Auslöser, z. B. `PIN` |
 | Schranke offen | `Schliesst in` | z. B. `5 Sekunden` |
 | Schranke schließt | `SCHLIESST...` | Auslöser, z. B. `Auto` |
-| Alarm | `ALARM` | Grund, z. B. `Zu nah: 18.0 cm` |
+| Alarm | `ALARM` | z. B. nach 3 falschen PINs |
 | unbekannte IR-Taste | `Unbekannter` | `IR-Code` |
 
 ## Fehlersuche

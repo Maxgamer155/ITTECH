@@ -30,10 +30,14 @@
   "ultrasonic": {
     "enabled": true,
     "warning_distance_cm": 80.0,
-    "alarm_distance_cm": 25.0,
     "max_distance_cm": 300.0,
     "sample_interval_seconds": 0.35,
-    "echo_timeout_seconds": 0.025
+    "echo_timeout_seconds": 0.025,
+    "auto_open_cooldown_seconds": 1.0
+  },
+  "button": {
+    "active_low": true,
+    "pull": "up"
   },
   "ir": {
     "enabled": true,
