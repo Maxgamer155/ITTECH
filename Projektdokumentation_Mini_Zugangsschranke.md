@@ -216,6 +216,7 @@ Der lokale Taster schaltet standardmäßig `GPIO27` gegen `GND`. Falls ein Devbo
 - `src/access_gate.py`: Hauptprogramm
 - `src/scan_ir_codes.py`: Hilfsprogramm zum Auslesen der Fernbedienungscodes
 - `src/test_ultrasonic.py`: Hilfsprogramm zum isolierten Testen des HC-SR04
+- `src/test_ir_transmitter.py`: isoliertes Hilfsprogramm für einen zweiten Raspberry Pi zum Senden von IR-Testcodes über `GPIO26`
 - `config.json`: Pinbelegung, PIN-Code und Hardware-Konfiguration
 - `README.md`: Aufbau- und Startanleitung
 - `access_gate.log`: wird beim Programmstart automatisch angelegt

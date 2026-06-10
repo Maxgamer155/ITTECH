@@ -113,6 +113,42 @@ Standard-Pins:
 
 Wichtig: `Echo` muss über Spannungsteiler angeschlossen sein.
 
+## IR-Transmitter testen
+
+Separates Testscript für den IR-Transmitter:
+
+```bash
+python3 src/test_ir_transmitter.py
+```
+
+Weboberfläche:
+
+```text
+http://<IP-DES-RASPBERRY-PI>:8090
+```
+
+Direkt eine Taste senden:
+
+```bash
+python3 src/test_ir_transmitter.py --button play
+```
+
+Direkt einen Code senden:
+
+```bash
+python3 src/test_ir_transmitter.py --send 0xFFA25D
+```
+
+Pins:
+
+- `DAT` / `S` → `GPIO26 / Pin 37`
+- `VCC` → `3.3V` oder `5V`, je nach Modul
+- `GND` → `GND`
+
+Wichtig: Dieses Testscript ist für einen separaten Raspberry Pi gedacht. Der IR-Transmitter gehört nicht in die Hauptverdrahtung der Schranke.
+
+Der IR-Sender muss mit der LED auf den IR-Empfänger zeigen.
+
 ## Bedienung
 
 | Taste | Funktion |
