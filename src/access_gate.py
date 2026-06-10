@@ -4,7 +4,7 @@ PIN-gesicherte Zugangsschranke mit Raspberry Pi 4.
 
 Funktionen:
 - IR-Fernbedienung fuer PIN-Eingabe und Admin-Tasten
-- PIR-Bewegungserkennung
+- HC-SR04-Ultraschall-Abstandsmessung
 - Servo-Schrankarm
 - 16x2 LCD mit PCF8574-I2C-Adapter
 - rote/gruene LED
@@ -24,7 +24,7 @@ import socketserver
 import sys
 import threading
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime
 from enum import Enum
 from http import HTTPStatus
@@ -64,7 +64,8 @@ class GateState(str, Enum):
 class Pins:
     servo: int = 18
     ir_receiver: int = 4
-    pir: int = 17
+    ultrasonic_trigger: int = 17
+    ultrasonic_echo: int = 5
     red_led: int = 23
     green_led: int = 24
     button: int = 27
@@ -86,6 +87,16 @@ class LcdConfig:
     address: int = 0x27
     columns: int = 16
     rows: int = 2
+
+
+@dataclass
+class UltrasonicConfig:
+    enabled: bool = True
+    warning_distance_cm: float = 80.0
+    alarm_distance_cm: float = 25.0
+    max_distance_cm: float = 300.0
+    sample_interval_seconds: float = 0.35
+    echo_timeout_seconds: float = 0.025
 
 
 @dataclass
@@ -136,6 +147,7 @@ class AppConfig:
     pins: Pins = field(default_factory=Pins)
     servo: ServoConfig = field(default_factory=ServoConfig)
     lcd: LcdConfig = field(default_factory=LcdConfig)
+    ultrasonic: UltrasonicConfig = field(default_factory=UltrasonicConfig)
     ir: IrConfig = field(default_factory=IrConfig)
 
 
@@ -144,7 +156,8 @@ class Status:
     state: GateState = GateState.CLOSED
     locked: bool = False
     alarm_muted: bool = False
-    motion_detected: bool = False
+    object_detected: bool = False
+    distance_cm: Optional[float] = None
     entered_pin_masked: str = ""
     wrong_attempts: int = 0
     countdown: int = 0
@@ -164,6 +177,11 @@ def setup_logging() -> None:
     )
 
 
+def dataclass_from_dict(cls, data: dict[str, object]):
+    allowed = {item.name for item in fields(cls)}
+    return cls(**{key: value for key, value in data.items() if key in allowed})
+
+
 def load_config(path: Path) -> AppConfig:
     if not path.exists():
         config = AppConfig()
@@ -177,10 +195,11 @@ def load_config(path: Path) -> AppConfig:
         max_wrong_pins=int(raw.get("max_wrong_pins", 3)),
         web_host=str(raw.get("web_host", "0.0.0.0")),
         web_port=int(raw.get("web_port", 8080)),
-        pins=Pins(**raw.get("pins", {})),
-        servo=ServoConfig(**raw.get("servo", {})),
-        lcd=LcdConfig(**raw.get("lcd", {})),
-        ir=IrConfig(**raw.get("ir", {})),
+        pins=dataclass_from_dict(Pins, raw.get("pins", {})),
+        servo=dataclass_from_dict(ServoConfig, raw.get("servo", {})),
+        lcd=dataclass_from_dict(LcdConfig, raw.get("lcd", {})),
+        ultrasonic=dataclass_from_dict(UltrasonicConfig, raw.get("ultrasonic", {})),
+        ir=dataclass_from_dict(IrConfig, raw.get("ir", {})),
     )
 
 
@@ -280,7 +299,8 @@ class Hardware:
         GPIO.setup(pins.green_led, GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(pins.buzzer, GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(pins.servo, GPIO.OUT)
-        GPIO.setup(pins.pir, GPIO.IN)
+        GPIO.setup(pins.ultrasonic_trigger, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(pins.ultrasonic_echo, GPIO.IN)
         GPIO.setup(pins.ir_receiver, GPIO.IN)
         GPIO.setup(pins.button, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
@@ -332,8 +352,34 @@ class Hardware:
     def read_button_pressed(self) -> bool:
         return GPIO.input(self.config.pins.button) == GPIO.LOW
 
-    def read_motion(self) -> bool:
-        return GPIO.input(self.config.pins.pir) == GPIO.HIGH
+    def measure_distance_cm(self) -> Optional[float]:
+        if not self.config.ultrasonic.enabled:
+            return None
+
+        pins = self.config.pins
+        timeout = self.config.ultrasonic.echo_timeout_seconds
+
+        GPIO.output(pins.ultrasonic_trigger, GPIO.LOW)
+        time.sleep(0.000002)
+        GPIO.output(pins.ultrasonic_trigger, GPIO.HIGH)
+        time.sleep(0.00001)
+        GPIO.output(pins.ultrasonic_trigger, GPIO.LOW)
+
+        wait_start = time.monotonic()
+        while GPIO.input(pins.ultrasonic_echo) == GPIO.LOW:
+            if time.monotonic() - wait_start > timeout:
+                return None
+
+        pulse_start = time.monotonic()
+        while GPIO.input(pins.ultrasonic_echo) == GPIO.HIGH:
+            if time.monotonic() - pulse_start > timeout:
+                return None
+
+        pulse_duration = time.monotonic() - pulse_start
+        distance_cm = pulse_duration * 34300 / 2
+        if distance_cm <= 0 or distance_cm > self.config.ultrasonic.max_distance_cm:
+            return None
+        return round(distance_cm, 1)
 
     def show_lcd(self, line1: str, line2: str = "") -> None:
         self.lcd.show(line1, line2)
@@ -469,22 +515,34 @@ class AccessGateApp:
         self.hardware.cleanup()
 
     def _sensor_loop(self) -> None:
-        last_motion = False
+        last_zone = "clear"
         while not self.stop_event.is_set():
-            motion = self.hardware.read_motion()
+            distance_cm = self.hardware.measure_distance_cm()
+            object_detected = (
+                distance_cm is not None
+                and distance_cm <= self.config.ultrasonic.warning_distance_cm
+            )
+            if distance_cm is None or distance_cm > self.config.ultrasonic.warning_distance_cm:
+                zone = "clear"
+            elif distance_cm <= self.config.ultrasonic.alarm_distance_cm:
+                zone = "alarm"
+            else:
+                zone = "warn"
+
             with self.lock:
-                self.status.motion_detected = motion
+                self.status.distance_cm = distance_cm
+                self.status.object_detected = object_detected
                 state = self.status.state
                 locked = self.status.locked
                 muted = self.status.alarm_muted
 
-            if motion and not last_motion:
+            if zone != "clear" and zone != last_zone:
                 if locked or state == GateState.CLOSED:
-                    self._motion_alarm(muted)
+                    self._distance_warning(distance_cm, muted)
                 else:
-                    self._set_event("Bewegung erkannt")
-            last_motion = motion
-            time.sleep(0.2)
+                    self._set_event(f"Objekt erkannt: {distance_cm:.1f} cm")
+            last_zone = zone
+            time.sleep(self.config.ultrasonic.sample_interval_seconds)
 
     def _button_loop(self) -> None:
         pressed_at = 0.0
@@ -543,6 +601,7 @@ class AccessGateApp:
         with self.lock:
             data = asdict(self.status)
             data["state"] = self.status.state.value
+            data["distance_display"] = "n/a" if self.status.distance_cm is None else f"{self.status.distance_cm:.1f}"
             return data
 
     def render_page(self) -> str:
@@ -576,7 +635,8 @@ class AccessGateApp:
     <small>Letztes Update: {escaped["last_update"]}</small>
   </section>
   <section class="card grid">
-    <div>Bewegung: <strong>{escaped["motion_detected"]}</strong></div>
+    <div>Objekt erkannt: <strong>{escaped["object_detected"]}</strong></div>
+    <div>Abstand: <strong>{escaped["distance_display"]} cm</strong></div>
     <div>Sperrmodus: <strong>{escaped["locked"]}</strong></div>
     <div>Fehlversuche: <strong>{escaped["wrong_attempts"]}</strong></div>
     <div>Countdown: <strong>{escaped["countdown"]}</strong></div>
@@ -773,16 +833,21 @@ class AccessGateApp:
         if not self.status.alarm_muted:
             self.hardware.alarm_beep()
 
-    def _motion_alarm(self, muted: bool) -> None:
+    def _distance_warning(self, distance_cm: Optional[float], muted: bool) -> None:
         with self.lock:
             state = self.status.state
             locked = self.status.locked
 
+        distance_text = "n/a" if distance_cm is None else f"{distance_cm:.1f} cm"
+        alarm_distance = self.config.ultrasonic.alarm_distance_cm
+
         if locked:
-            self.trigger_alarm("Bewegung im Sperrmodus")
+            self.trigger_alarm("Abstand im Sperrmodus")
+        elif distance_cm is not None and distance_cm <= alarm_distance:
+            self.trigger_alarm(f"Zu nah: {distance_text}")
         elif state == GateState.CLOSED:
-            self._set_event("Bewegung erkannt, PIN erforderlich")
-            self.hardware.show_lcd("Bewegung", "PIN eingeben")
+            self._set_event(f"Objekt erkannt: {distance_text}, PIN erforderlich")
+            self.hardware.show_lcd(f"Abstand {distance_text}"[:16], "PIN eingeben")
             if not muted:
                 self.hardware.beep(1, duration=0.05, frequency=1000)
 

@@ -23,7 +23,8 @@ Wenn euer Devboard andere Bezeichnungen hat, zählt die Raspberry-Pi-Pin-Nummer 
 | I²C Daten | `SDA` / `GPIO2` | Pin 3 |
 | I²C Takt | `SCL` / `GPIO3` | Pin 5 |
 | IR-Empfänger Signal | `GPIO4` | Pin 7 |
-| PIR-Sensor Signal | `GPIO17` | Pin 11 |
+| HC-SR04 Trigger | `GPIO17` | Pin 11 |
+| HC-SR04 Echo | Spannungsteiler → `GPIO5` | Pin 29 |
 | Servo Signal | `GPIO18` | Pin 12 |
 | Buzzer Signal | `GPIO22` | Pin 15 |
 | rote LED | `GPIO23` | Pin 16 |
@@ -63,17 +64,28 @@ Danach könnt ihr Codes mit folgendem Programm testen:
 python3 src/scan_ir_codes.py
 ```
 
-## 5. PIR-Bewegungssensor anschließen
+## 5. HC-SR04 Ultraschallsensor anschließen
 
-Der PIR-Sensor hat meistens drei Pins: `VCC`, `OUT`, `GND`.
+Der HC-SR04 hat vier Pins: `VCC`, `Trig`, `Echo`, `GND`.
 
-| PIR-Pin | Devboard-Anschluss | Hinweis |
+| HC-SR04-Pin | Devboard-Anschluss | Hinweis |
 |---|---|---|
-| `VCC` | `5V` | viele PIR-Module brauchen 5 V |
-| `OUT` | `GPIO17` | Bewegungssignal |
+| `VCC` | `5V` | Sensorversorgung |
+| `Trig` | `GPIO17` | Ausgang vom Pi zum Sensor |
+| `Echo` | Spannungsteiler → `GPIO5` | Echo ist 5 V und muss reduziert werden |
 | `GND` | `GND` | Masse |
 
-Nach dem Einschalten braucht der PIR-Sensor oft 30 bis 60 Sekunden Aufwärmzeit. In dieser Zeit kann er unzuverlässig auslösen.
+### Spannungsteiler für `Echo`
+
+Der Raspberry Pi darf an GPIO-Pins nur `3.3V` bekommen. Der HC-SR04 gibt am `Echo`-Pin bei 5-V-Versorgung aber ungefähr `5V` aus. Deshalb darf `Echo` nicht direkt an `GPIO5`.
+
+Empfohlene einfache Verdrahtung:
+
+```text
+HC-SR04 Echo --- 1 kΩ --- GPIO5 --- 2 kΩ --- GND
+```
+
+Damit werden aus ungefähr `5V` am Echo-Pin ungefähr `3.3V` am GPIO-Pin.
 
 ## 6. Servo anschließen
 
@@ -143,9 +155,10 @@ Bei einem 4-poligen Taster liegen jeweils zwei gegenüberliegende Pins intern zu
 | IR-Empfänger | `OUT/S` | `GPIO4` | 7 |
 | IR-Empfänger | `VCC/+` | `3V3` | 1 |
 | IR-Empfänger | `GND/-` | `GND` | 9 |
-| PIR | `VCC` | `5V` | 2 |
-| PIR | `OUT` | `GPIO17` | 11 |
-| PIR | `GND` | `GND` | 14 |
+| HC-SR04 | `VCC` | `5V` | 2 |
+| HC-SR04 | `Trig` | `GPIO17` | 11 |
+| HC-SR04 | `Echo` | Spannungsteiler → `GPIO5` | 29 |
+| HC-SR04 | `GND` | `GND` | 14 |
 | Servo | Signal | `GPIO18` | 12 |
 | Servo | Plus | externe `5V` | - |
 | Servo | Minus | `GND` | 6 |
@@ -166,7 +179,7 @@ Bei einem 4-poligen Taster liegen jeweils zwei gegenüberliegende Pins intern zu
 4. IR-Empfänger anschließen und Fernbedienung mit `src/scan_ir_codes.py` testen.
 5. LEDs anschließen und mit dem Hauptprogramm prüfen.
 6. Buzzer anschließen.
-7. PIR-Sensor anschließen und nach Aufwärmzeit testen.
+7. HC-SR04 anschließen und Echo nur über Spannungsteiler mit `GPIO5` verbinden.
 8. Servo zuletzt anschließen, idealerweise mit externer 5-V-Versorgung.
 9. Hauptprogramm starten:
 
@@ -188,5 +201,6 @@ http://<IP-DES-RASPBERRY-PI>:8080
 | LCD zeigt nur blaue Fläche | Kontrast falsch | Poti am I²C-Adapter drehen |
 | LCD wird nicht gefunden | I²C aus oder falsche Verkabelung | `raspi-config`, SDA/SCL prüfen |
 | IR reagiert nicht | VCC/GND/OUT vertauscht | Pinbeschriftung am Modul prüfen |
-| PIR löst immer aus | Aufwärmzeit oder Empfindlichkeit | warten, Potis einstellen |
+| Abstand ist immer `n/a` | Trigger/Echo vertauscht oder Spannungsteiler falsch | Verdrahtung prüfen |
+| Abstand springt stark | Sensor misst schräg oder auf weiche Oberfläche | Sensor gerade auf feste Fläche ausrichten |
 | Taster reagiert invertiert | falsch gesteckt | Taster drehen oder Pins wechseln |

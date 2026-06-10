@@ -1,6 +1,6 @@
 # PIN-gesicherte Zugangsschranke
 
-Dieses Projekt steuert eine kleine Zugangsschranke mit einem Raspberry Pi 4. Die Schranke wird mit einer IR-Fernbedienung per PIN freigegeben, ein Servo bewegt den Schrankenarm, ein PIR-Sensor erkennt Bewegung, ein 16x2-LCD zeigt Statusmeldungen, LEDs zeigen den Zustand und ein Buzzer gibt Rückmeldungen.
+Dieses Projekt steuert eine kleine Zugangsschranke mit einem Raspberry Pi 4. Die Schranke wird mit einer IR-Fernbedienung per PIN freigegeben, ein Servo bewegt den Schrankenarm, ein HC-SR04-Ultraschallsensor misst den Abstand vor der Schranke, ein 16x2-LCD zeigt Statusmeldungen, LEDs zeigen den Zustand und ein Buzzer gibt Rückmeldungen.
 
 ## Hardware
 
@@ -8,7 +8,7 @@ Dieses Projekt steuert eine kleine Zugangsschranke mit einem Raspberry Pi 4. Die
 - 16x2 LCD mit I²C-Adapter, meist `PCF8574`
 - IR-Empfänger mit 3 Pins
 - IR-Fernbedienung
-- PIR-Bewegungssensor, z. B. `HC-SR501`
+- HC-SR04 Ultraschallsensor
 - SG90 Micro Servo
 - aktiver oder passiver Buzzer
 - rote LED mit Vorwiderstand
@@ -29,9 +29,10 @@ Eine ausführliche Schritt-für-Schritt-Anleitung für euer Devboard liegt in `V
 | IR-Empfänger | `VCC` | `3.3V`, Pin 1 |
 | IR-Empfänger | `GND` | `GND`, z. B. Pin 9 |
 | IR-Empfänger | `OUT/S` | `GPIO4`, Pin 7 |
-| PIR-Sensor | `VCC` | `5V`, Pin 2 oder 4 |
-| PIR-Sensor | `GND` | `GND`, z. B. Pin 14 |
-| PIR-Sensor | `OUT` | `GPIO17`, Pin 11 |
+| HC-SR04 | `VCC` | `5V`, Pin 2 oder 4 |
+| HC-SR04 | `GND` | `GND`, z. B. Pin 14 |
+| HC-SR04 | `Trig` | `GPIO17`, Pin 11 |
+| HC-SR04 | `Echo` | Spannungsteiler → `GPIO5`, Pin 29 |
 | Servo | Signal, meist orange/gelb | `GPIO18`, Pin 12 |
 | Servo | Plus, meist rot | externe `5V` empfohlen |
 | Servo | Minus, meist braun/schwarz | gemeinsame Masse mit Pi |
@@ -44,7 +45,7 @@ Eine ausführliche Schritt-für-Schritt-Anleitung für euer Devboard liegt in `V
 | Taster | Seite 1 | `GPIO27`, Pin 13 |
 | Taster | Seite 2 | `GND` |
 
-Wichtig: Der Raspberry Pi verträgt an GPIO-Pins nur `3.3V`. Deshalb den IR-Empfänger mit `3.3V` betreiben. Das LCD zuerst mit `3.3V` testen. Wenn es nur mit `5V` zuverlässig arbeitet, sollte für SDA/SCL ein Level-Shifter verwendet werden, weil viele I²C-LCD-Adapter Pull-ups nach VCC haben. Beim Servo eine externe `5V`-Versorgung verwenden, wenn der Servo zittert oder der Pi instabil wird. Die Masse der externen Versorgung muss mit `GND` des Pi verbunden sein.
+Wichtig: Der Raspberry Pi verträgt an GPIO-Pins nur `3.3V`. Deshalb den IR-Empfänger mit `3.3V` betreiben. Das `Echo`-Signal des HC-SR04 ist bei 5-V-Versorgung ebenfalls `5V` und darf nicht direkt an den Pi. Nutzt dafür einen Spannungsteiler, z. B. `1 kΩ` von `Echo` zu `GPIO5` und `2 kΩ` von `GPIO5` zu `GND`. Das LCD zuerst mit `3.3V` testen. Wenn es nur mit `5V` zuverlässig arbeitet, sollte für SDA/SCL ein Level-Shifter verwendet werden, weil viele I²C-LCD-Adapter Pull-ups nach VCC haben. Beim Servo eine externe `5V`-Versorgung verwenden, wenn der Servo zittert oder der Pi instabil wird. Die Masse der externen Versorgung muss mit `GND` des Pi verbunden sein.
 
 ## Software vorbereiten
 
@@ -116,8 +117,9 @@ Die PIN kann in `config.json` geändert werden.
 
 - PIN-Eingabe über IR-Fernbedienung
 - automatische Schließung nach Countdown
-- Bewegungserkennung über PIR
-- Alarm bei Bewegung im Sperrmodus
+- Abstandsmessung mit HC-SR04
+- PIN-Aufforderung ab `80 cm`
+- Alarm bei weniger als `25 cm` Abstand oder Annäherung im Sperrmodus
 - Alarm nach 3 falschen PINs
 - LCD-Statusanzeige
 - LED-Anzeige für offen/geschlossen
@@ -125,10 +127,26 @@ Die PIN kann in `config.json` geändert werden.
 - Webinterface mit Status und Steuerknöpfen
 - Log-Datei `access_gate.log`
 
+## LCD-Anzeigen
+
+| Situation | Zeile 1 | Zeile 2 |
+|---|---|---|
+| Programmstart | `PIN-Schranke` | `geschlossen` |
+| geschlossen | `Geschlossen` | `PIN eingeben` |
+| Objekt unter 80 cm | `Abstand xx.x cm` | `PIN eingeben` |
+| PIN-Eingabe | `PIN eingeben` | `*`, `**`, `***`, `****` |
+| falscher PIN | `Falscher PIN` | z. B. `1/3` |
+| Schranke öffnet | `OEFFNET...` | Auslöser, z. B. `PIN` |
+| Schranke offen | `Schliesst in` | z. B. `5 Sekunden` |
+| Schranke schließt | `SCHLIESST...` | Auslöser, z. B. `Auto` |
+| Alarm | `ALARM` | Grund, z. B. `Zu nah: 18.0 cm` |
+| unbekannte IR-Taste | `Unbekannter` | `IR-Code` |
+
 ## Fehlersuche
 
 - LCD bleibt leer: I²C aktivieren, Adresse mit `i2cdetect -y 1` prüfen, Potentiometer am LCD-Adapter drehen.
 - Servo zittert: externe `5V`-Versorgung verwenden und gemeinsame Masse herstellen.
 - Fernbedienung reagiert nicht: IR-Empfänger-Pinbelegung prüfen, `VCC` an `3.3V`, `OUT` an `GPIO4`.
-- PIR löst dauerhaft aus: Wartezeit nach dem Einschalten beachten und Potentiometer am PIR-Modul einstellen.
+- Abstand ist immer `n/a`: `Trig`/`Echo` prüfen, Spannungsteiler prüfen, Sensor gerade ausrichten.
+- Abstand springt stark: Sensor auf feste Fläche ausrichten, Kabel prüfen, Messbereich unter `300 cm` halten.
 - Weboberfläche nicht erreichbar: IP-Adresse des Pi prüfen und Port `8080` verwenden.

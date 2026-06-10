@@ -7,7 +7,8 @@
   "pins": {
     "servo": 18,
     "ir_receiver": 4,
-    "pir": 17,
+    "ultrasonic_trigger": 17,
+    "ultrasonic_echo": 5,
     "red_led": 23,
     "green_led": 24,
     "button": 27,
@@ -25,6 +26,14 @@
     "address": 39,
     "columns": 16,
     "rows": 2
+  },
+  "ultrasonic": {
+    "enabled": true,
+    "warning_distance_cm": 80.0,
+    "alarm_distance_cm": 25.0,
+    "max_distance_cm": 300.0,
+    "sample_interval_seconds": 0.35,
+    "echo_timeout_seconds": 0.025
   },
   "ir": {
     "enabled": true,
